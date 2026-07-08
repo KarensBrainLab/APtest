@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Absolute Pitch Test</title>
+  <script>
+    // ===== Researcher setting =====
+    // Change only this value:
+    // "both"  = piano + pure tone
+    // "piano" = piano only
+    // "pure"  = pure tone only
+    window.APTEST_CONFIG = {
+      testMode: "piano",
+    };
+  </script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin: 10px 0; }
+    input { padding: 10px; font-size: 16px; width: 240px; }
+    input.invalid-field, select.invalid-field {
+      border: 2px solid rgba(217, 48, 37, 0.5) !important;
+      background: rgba(255, 246, 246, 0.5);
+      border-radius: 4px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-width: 520px; }
+    button { padding: 14px 10px; font-size: 16px; }
+    #status {
+      margin: 12px 0;
+      min-height: 2.6em;   /* Keep lower elements fixed regardless of status line wrapping */
+      line-height: 1.3;
+    }
+    #status.compact {
+      min-height: 1.3em;
+      margin-bottom: 4px;
+    }
+    select { padding: 10px; font-size: 16px; }
+    .keyboard {
+      position: relative;
+      width: min(100%, 560px);   /* Shrinks to fit viewport width */
+      height: 180px;
+      margin-top: 16px;
+      user-select: none;
+      border-radius: 10px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #f7f7f7 0%, #ececec 100%);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    /* White keys: 7 keys, width based on percentage */
+    .key.white {
+      position: absolute;
+      bottom: 0;
+      width: calc(100% / 7);
+      height: 180px;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 72%, #ececec 100%);
+      border: 1px solid #4a4a4a;
+      box-sizing: border-box;
+      border-radius: 0 0 4px 4px;
+      padding: 0;
+      cursor: pointer;
+      box-shadow: inset 0 -8px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+
+    /* White-key labels: bottom */
+    .key.white .label {
+      position: absolute;
+      left: 0; right: 0;
+      bottom: 8px;
+      text-align: center;
+      font-size: 14px;
+      color: #111;
+    }
+
+    /* Black keys: about 60% of white-key width */
+    .key.black {
+      position: absolute;
+      top: 0;
+      width: calc((100% / 7) * 0.62);
+      height: 110px;
+      background: linear-gradient(180deg, #3d3d3d 0%, #1e1e1e 48%, #0f0f0f 100%);
+      color: white;
+      z-index: 2;
+      border: 1px solid #060606;
+      border-radius: 0 0 6px 6px;
+      padding: 0;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4), inset 0 -5px 7px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* Black-key labels: centered */
+    .key.black .label {
+      position: absolute;
+      left: 0; right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: center;
+      font-size: 10px;
+      white-space: nowrap;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    /* Press highlight (toggled by JS) */
+    .key.pressed.white {
+      background: linear-gradient(180deg, #f1f6ff 0%, #e7eefc 100%);
+      box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.12);
+    }
+    .key.pressed.black {
+      background: linear-gradient(180deg, #5a6f8b 0%, #31445d 100%);
+      border-color: #1f2d3f;
+      box-shadow: inset 0 3px 10px rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.55);
+    }
+
+    /* Disable tap highlight */
+    .key { -webkit-tap-highlight-color: transparent; }
+    
+    /* ===== Prevent layout shifts on click/focus ===== */
+    #keyboard .key{
+      box-sizing: border-box;
+      outline: none;              /* Prevent focus outline from shifting layout */
+      border-width: 1px;          /* Keep border thickness fixed on press */
+      padding: 0;                 /* Already 0, kept explicitly for safety */
+      line-height: 1;             /* Avoid height jitter across fonts */
+      -webkit-appearance: none; appearance: none;
+    }
+
+    #keyboard .key:focus,
+    #keyboard .key:focus-visible,
+    #keyboard .key:active{
+      outline: none;
+      box-shadow: none;           /* Prevent visual movement caused by shadow */
+      transform: none;            /* Disable subtle movement on press */
+    }
+
+    #keyboard { overflow: hidden; } /* Prevent scrollbars from 1px shifts */
+    
+    #rowSave {max-width: 560px; }          /* Match keyboard max width */  
+    #rowSave button {flex: 1 1 220px; }   /* Keep two buttons from wrapping on mobile */
+    #summary { width: min(100%, 560px); margin: 10px 0 12px; }
+    .result-panel { border: 1px solid #dbe4f0; background: #f7f9fc; border-radius: 12px; padding: 12px; }
+    .result-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+    .kpi-card { background: #fff; border: 1px solid #e2e8f2; border-radius: 8px; padding: 8px 10px; }
+    .kpi-label { font-size: 12px; color: #5f6b7a; }
+    .kpi-value { font-size: 20px; font-weight: 700; color: #1f2a37; line-height: 1.1; margin-top: 2px; }
+    .kpi-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .insight-row { margin-top: 8px; font-size: 13px; color: #334155; }
+    .notice-box,
+    .block-note {
+      box-sizing: border-box;
+      width: min(100%, 560px);
+      border: 1px solid #cbd5e1;
+      background: #fbfdff;
+      color: #1f2937;
+      line-height: 1.65;
+      margin-bottom: 0;
+    }
+    .notice-box {
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 12px 12px 0 0;
+      border-bottom: none;
+    }
+    .block-note {
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 0 0 12px 12px;
+      border-top: 1px solid #dbe4f0;
+    }
+    .notice-title,
+    .instruction-title {
+      position: relative;
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 16px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      color: #1e3a8a;
+      padding-left: 12px;
+    }
+    .notice-title::before,
+    .instruction-title::before {
+      content: "";
+      position: absolute;
+      left: -14px;
+      bottom: 0;
+      width: 14px;
+      height: 16px;
+      border-radius: 0 2px 2px 0;
+      background: #1d4ed8;
+    }
+    .notice-box #noticeLine2 {
+      margin-top: 2px;
+    }
+    #instructionBox #instructionLine4 {
+      display: inline-block;
+      margin-top: 4px;
+    }
+    #breakPanel {
+      display: none;
+      width: min(100%, 560px);
+      border: 1px solid #dbe4f0;
+      background: #f7f9fc;
+      border-radius: 12px;
+      padding: 12px;
+      margin: 12px 0;
+    }
+    #comparisonSummary,
+    #blockResults {
+      width: min(100%, 560px);
+      margin: 10px 0 12px;
+    }
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+    }
+    .block-section {
+      margin-top: 14px;
+    }
+    #labelModeChooser {
+      display: none;
+      width: min(100%, 560px);
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      margin: 0 0 10px;
+      background: transparent;
+    }
+    #labelModeChooser .title { font-weight: 400; margin-bottom: 6px; color: #111; }
+    #labelModeChooser .opt { margin: 6px 0; display:block; color: #111; }
+    #languageChooser {
+      box-sizing: border-box;
+      width: min(100%, 560px);
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border: 1px solid #dbe4f0;
+      background: #f7f9fc;
+      border-radius: 12px;
+    }
+    #languageChooser .title { font-weight: 700; margin-bottom: 6px; }
+    .language-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .lang-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-height: 68px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 8px 10px;
+    }
+    .lang-btn .lang-name {
+      font-weight: 700;
+      font-size: 16px;
+      line-height: 1.1;
+    }
+    .lang-btn .lang-action {
+      font-size: 12px;
+      color: #475569;
+    }
+    .lang-btn.active {
+      border-color: #1d4ed8;
+      background: #eff6ff;
+      box-shadow: inset 0 0 0 1px #1d4ed8;
+    }
+    @media (max-width: 640px) {
+      .notice-box,
+      .block-note {
+        border-radius: 12px;
+      }
+      .notice-box {
+        border-bottom: none;
+        margin-bottom: 8px;
+      }
+      .block-note {
+        border-top: 1px solid #dbe4f0;
+      }
+    }
+    </style>
+</head>
+<body>
+  <h1 id="pageTitle">Absolute Pitch Test</h1>
+
+  <div id="languageChooser" style="display:none;">
+    <div class="title" id="languageChooserTitle">Language</div>
+    <div class="language-grid">
+      <button type="button" class="lang-btn active" data-ui-lang="en">
+        <span class="lang-name">English</span>
+        <span class="lang-action">Select</span>
+      </button>
+      <button type="button" class="lang-btn" data-ui-lang="ja">
+        <span class="lang-name">日本語</span>
+        <span class="lang-action">選択</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="notice-box">
+    <div class="notice-title" id="noticeTitle">Notice</div>
+    <div id="noticeLine1">Sounds will be played during this task, so please complete it in as quiet an environment as possible.</div>
+    <div id="noticeLine2">The use of earphones or headphones is recommended.</div>
+  </div>
+
+  <div class="block-note" id="instructionBox">
+    <div class="instruction-title" id="instructionTitle">Instructions</div>
+    <span id="instructionLine1">Single tones will be presented at regular intervals.</span>
+    <span id="instructionLine2">Each time, identify the note you hear and click the corresponding key on the piano keyboard</span><b id="instructionEmphasis"> as soon as you have identified it.</b><span id="instructionLine3"></span>
+    <br><span id="instructionLine4">This task takes approximately 5 minutes.</span>
+  </div>
+
+  <div class="row">
+    <label for="ID" id="labelId"><b>ID</b></label>
+    <input id="ID" type="text" placeholder="例: X26X123X" />
+  </div>
+  <!-- ===== Demographics ===== -->
+  <div class="row">
+    <label for="sex" id="labelSex"><b>Sex</b></label>
+    <select id="sex">
+      <option value="" id="sexPlaceholder">Please select</option>
+      <option value="F">F</option>
+      <option value="M">M</option>
+      <option value="Other" id="sexOtherOption">Other / Prefer not to answer</option>
+    </select>
+
+    <label for="age" id="labelAge"><b>Age</b></label>
+    <input id="age" type="number" min="0" max="120" placeholder="18" style="width:120px;" />
+  </div>
+
+  <!-- ===== Instruments (multiple rows) ===== -->
+  <div class="row" style="align-items:flex-start;">
+    <div>
+      <div style="font-weight:700;margin-bottom:6px;" id="instrumentSectionTitle">Musical training</div>
+      <div class="row" id="instRows" style="margin:0;">
+        <div class="row instRow" style="margin:0;">
+          <select class="instName">
+            <option value="" class="inst-option-placeholder">Please select</option>
+            <option value="non-musician" class="inst-option-non-musician">None</option>
+            <option value="piano" class="inst-option-piano">Piano</option>
+            <option value="violin" class="inst-option-violin">Violin</option>
+            <option value="flute" class="inst-option-flute">Flute</option>
+            <option value="clarinet" class="inst-option-clarinet">Clarinet</option>
+            <option value="saxophone" class="inst-option-saxophone">Saxophone</option>
+            <option value="trumpet" class="inst-option-trumpet">Trumpet</option>
+            <option value="trombone" class="inst-option-trombone">Trombone</option>
+            <option value="cello" class="inst-option-cello">Cello</option>
+            <option value="guitar" class="inst-option-guitar">Guitar</option>
+            <option value="voice" class="inst-option-voice">Voice</option>
+            <option value="percussion" class="inst-option-percussion">Percussion</option>
+            <option value="other" class="inst-option-other">Other</option>
+          </select>
+
+          <input class="instStart" type="number" min="0" max="120" placeholder="Start age" style="width:120px;" />
+          <input class="instEnd" type="number" min="0" max="120" placeholder="End age" style="width:120px;" />
+          <input class="instOther" type="text" placeholder="Other instrument name" style="width:180px; display:none;" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <button type="button" id="btnAddInst" onclick="addInstrumentRow()">+ Add instrument</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row" id="rowStart">
+    <button id="btnStart">Start</button>
+    <button id="btnVolPlay" disabled>Check volume</button>
+    <button id="btnVolOK" disabled>Use this volume</button>
+  </div>
+
+  <div id="status">Not started</div>
+  <div id="breakPanel">
+    <!--<div style="font-weight:700; margin-bottom:6px;">休憩</div>-->
+    <div id="breakMessage" style="margin-bottom:10px; color:#334155;">The task is not finished yet. Please press “Next” to continue.</div>
+    <button id="btnContinueBlock" type="button">Next</button>
+  </div>
+  <div id="labelModeChooser">
+    <div class="title" id="labelModeTitle">Choose the note labels shown on the keyboard</div>
+    <label class="opt"><input type="radio" name="labelMode" value="sharp" checked> C, C♯/D♭, D ...</label>
+    <label class="opt"><input type="radio" name="labelMode" value="solfege_en"> Do, Do♯/Re♭, Re ...</label>
+    <label class="opt"><input type="radio" name="labelMode" value="solfege_ja"> ド, ド♯/レ♭, レ ...</label>
+    <button id="btnLabelModeStart" type="button">Start with this notation</button>
+  </div>
+
+  <h2 id="speedInstruction">Answer as quickly as possible</h2>
+  <div id="keyboard" class="keyboard"></div><br>
+
+  <div id="summary"></div>
+  <div id="chartTitlePiano" style="display:none; width:min(100%,560px); margin:10px 0 4px; font-weight:700;">Piano Tone</div>
+  <canvas id="accChartPiano" style="display:none; width:100%; height:220px;"></canvas>
+  <div id="chartTitlePure" style="display:none; width:min(100%,560px); margin:14px 0 4px; font-weight:700;">Pure Tone</div>
+  <canvas id="accChartPure" style="display:none; width:100%; height:220px;"></canvas>
+  <script>
+    window.API_BASE_URL = "";
+    window.API_SUBMIT_PATH = "/api/submit.php";
+    window.TEST_CODE = "aptest_php_server";
+  </script>
+  <script src="aptest_php_server.js" defer></script>
+</body>
+</html>
