@@ -1,56 +1,5 @@
-# Local Browser Download Package
+# Local_NoServer
 
-This package is for local use on a researcher-managed computer.
+Run APtest directly in Chrome or Edge without a PHP server. The default is **piano-only**; set `testMode: "both"` for the full manuscript protocol. Results download as CSV, JSON, and PDF.
 
-## Included Files
-
-- `aptest_local.html`
-- `aptest_local.js`
-- `audio/`
-- `audio_pure/`
-
-## Default Settings
-
-- language: English
-- test mode: piano only
-
-## How to Run
-
-1. Open `aptest_local.html` in Chrome or Edge.
-2. Complete the task normally.
-3. At the end of the task, the browser downloads:
-   - `ID_Date_APscoreXX.Xpct_APtest.csv`
-   - `ID_Date_APscoreXX.Xpct_APtest.json`
-   - `ID_Date_APscoreXX.Xpct_APtest.pdf`
-
-## How to Change Test Mode
-
-Edit the `window.APTEST_CONFIG` block near the bottom of `aptest_local.html`.
-
-```html
-<script>
-  window.APTEST_CONFIG = {
-    testMode: "piano",
-  };
-</script>
-```
-
-Available values:
-
-- `"piano"` = piano only
-- `"pure"` = pure tone only
-- `"both"` = piano + pure tone
-
-## Duration Display
-
-- `piano` or `pure`: about 5 minutes
-- `both`: about 10 minutes
-
-## Browser Notes
-
-- Allow multiple automatic downloads if the browser asks.
-- Download location follows the browser's own download settings.
-
-## Notes
-
-- The Japanese solfège label option (ド, レ, ミ...) is only available when the interface language is set to Japanese. It is hidden automatically when English is selected.
+**Step-by-step:** [Local setup](../docs/LOCAL_SETUP.md) · [Task design](../docs/TASK_DESIGN.md) · [Data format](../docs/DATA_FORMAT.md)
