@@ -18,5 +18,5 @@ Desktop.ini
 # Logs
 *.log
 
-# Nested package ignores
-APtest/aptest_data/
+# PHP server data (not for version control)
+aptest_data/
